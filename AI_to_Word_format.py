@@ -2,7 +2,7 @@ import re
 import time
 import win32clipboard
 import latex2mathml.converter
-import hashlib
+import sys
 
 def latex_to_mathml(latex_str):
     """
@@ -50,6 +50,7 @@ def convert_table_block(lines):
     if not set(lines[1]).issubset(set('|:- ')):
         return '\n'.join(lines)
 
+    # 표 스타일: 맑은 고딕, 10pt (13pt 이하이므로 유지)
     table_style = "border-collapse: collapse; width: 100%; border: 1px solid black; font-family: 'Malgun Gothic', sans-serif; font-size: 10pt; line-height: 1.1; margin: 0px; mso-para-margin: 0px; font-weight: normal;"
     th_style = "border: 1px solid black; padding: 5px; background-color: #f2f2f2;"
     td_style = "border: 1px solid black; padding: 5px;"
@@ -95,6 +96,7 @@ def process_lists_to_text(text):
     list_buffer = []
     in_list = False
 
+    # 리스트 폰트: 11pt (13pt 이하이므로 유지)
     li_style = "line-height: 1.1; font-size: 11pt; font-family: 'Malgun Gothic', sans-serif;"
     ul_style = "margin: 0; padding-left: 20px;"
 
@@ -140,8 +142,7 @@ def process_lists_to_text(text):
 
 def convert_text_to_html(text):
     """
-    텍스트 내의 수식, 마크다운 요소들을 변환하고,
-    일반 텍스트는 <br>(Shift+Enter 효과)로 연결하여 줄 간격을 좁힙니다.
+    텍스트 내의 수식, 마크다운 요소들을 변환하고 HTML을 생성합니다.
     """
     # 1. 블록 수식 처리
     text = re.sub(r'\$\$(.*?)\$\$', lambda m: f'{latex_to_mathml(m.group(1))}', text, flags=re.DOTALL)
@@ -154,18 +155,16 @@ def convert_text_to_html(text):
     # 3. 마크다운 표 처리
     text = process_tables(text)
 
-    # 4. 마크다운 리스트 처리 (리스트 내부 볼드/이탤릭은 여기서 처리됨)
+    # 4. 마크다운 리스트 처리
     text = process_lists_to_text(text)
     
     # 5. 마크다운 인라인 요소 처리 (리스트 밖의 텍스트만 처리)
     lines = text.split('\n')
     processed_lines = []
     for line in lines:
-        # 완전한 HTML 블록 태그가 있는 라인만 건너뛰기
         if re.match(r'^\s*<(ul|table|div|hr)', line, re.IGNORECASE):
             processed_lines.append(line)
         else:
-            # 일반 텍스트는 인라인 마크다운 처리
             processed_lines.append(process_inline_markdown(line))
     text = '\n'.join(processed_lines)
 
@@ -176,8 +175,15 @@ def convert_text_to_html(text):
     def header_replace(m):
         level = len(m.group(1))
         content = m.group(2).strip()
+        
+        # 폰트 크기 계산
         font_size = 18 - (level * 2) 
         if font_size < 12: font_size = 12
+        
+        # [수정] 폰트 크기 13 이상은 13으로 제한
+        if font_size >= 13:
+            font_size = 13
+            
         return f'<div style="font-size: {font_size}pt; line-height: 1.1; font-weight: bold; color: #000000; font-family: \'Malgun Gothic\', sans-serif;">{content}</div>'
     
     text = re.sub(r'^(#{1,6})\s+(.*)$', header_replace, text, flags=re.MULTILINE)
@@ -187,6 +193,7 @@ def convert_text_to_html(text):
     final_html_parts = []
     text_buffer = []
     
+    # 일반 본문 폰트: 11pt (13pt 이하이므로 유지)
     common_style = "line-height: 1.1; font-size: 11pt; font-family: 'Malgun Gothic', sans-serif; color: #000000; font-weight: normal;"
 
     def flush_buffer():
@@ -201,7 +208,6 @@ def convert_text_to_html(text):
         if not stripped:
             continue
         
-        # HTML 블록 태그로 시작하는 라인은 독립적으로 처리
         if re.match(r'^\s*<(table|hr|ul|ol|div)', line, re.IGNORECASE):
             flush_buffer()
             final_html_parts.append(line)
@@ -212,6 +218,7 @@ def convert_text_to_html(text):
 
     final_body_content = ''.join(final_html_parts)
     
+    # body 기본 폰트도 11pt 설정
     html_body = f'<html><body style="font-weight: normal; font-family: \'Malgun Gothic\', sans-serif; font-size: 11pt;">{final_body_content}</body></html>'
     return html_body
 
@@ -263,44 +270,66 @@ def get_clipboard_text():
     except:
         return None
 
-def get_text_hash(text):
+def is_forbidden_code(text):
     """
-    텍스트의 해시값을 반환합니다.
+    변환 금지 키워드로 시작하는지 검사
+    (import, #include, #define)
     """
-    if text is None:
-        return None
-    return hashlib.md5(text.encode('utf-8')).hexdigest()
+    clean_text = text.strip()
+    
+    if re.match(r'^(import|from)\s+', clean_text):
+        return True
+    
+    if re.match(r'^#include', clean_text):
+        return True
+        
+    if re.match(r'^#define', clean_text):
+        return True
+        
+    return False
+
+def beep_sound():
+    """시스템 종소리"""
+    print('\a')
+    sys.stdout.flush()
 
 def main():
     print("=" * 60)
-    print("  마크다운 → 워드 HTML 자동 변환기 (상주 모드)")
+    print("  Gemini → Word HTML 변환기 (수동 실행 모드)")
     print("=" * 60)
-    print()
-    print("📋 클립보드를 감시하고 있습니다...")
-    print("💡 마크다운 텍스트를 복사하면 자동으로 HTML로 변환됩니다.")
-    print("⏹️  종료하려면 Ctrl+C를 누르세요.")
-    print()
+    print("  y: 현재 클립보드 내용 변환")
+    print("  q: 종료")
     print("-" * 60)
-    
-    last_hash = None
-    
+
     try:
         while True:
-            try:
+            # 키 입력 대기
+            user_input = input("\n변환 할까요 ?('y') : ").strip().lower()
+
+            # 1. 종료 조건
+            if user_input == 'q':
+                print("👋 프로그램을 종료합니다.")
+                break
+
+            # 2. 변환 시도 조건
+            elif user_input == 'y':
                 current_text = get_clipboard_text()
-                current_hash = get_text_hash(current_text)
+
+                # 내용이 없는 경우
+                if not current_text or len(current_text.strip()) == 0:
+                    print("⚠️ 클립보드가 비어있습니다.")
+                    continue
+
+                # 금지된 코드(import, #include, #define)인지 확인
+                if is_forbidden_code(current_text):
+                    print("🚫 [변환 거부] 코드(import/#include/#define)가 감지되었습니다.")
+                    continue
                 
-                # 클립보드 내용이 변경되었고, 텍스트가 있을 때만 처리
-                if current_hash and current_hash != last_hash and current_text:
-                    # 너무 짧은 텍스트는 무시 (단순 복사 방지)
-                    if len(current_text.strip()) < 5:
-                        last_hash = current_hash
-                        time.sleep(0.5)
-                        continue
-                    
-                    print(f"\n🔄 [{time.strftime('%H:%M:%S')}] 클립보드 변경 감지!")
-                    print(f"📝 텍스트 길이: {len(current_text)} 글자")
-                    
+                # 변환 진행
+                beep_sound() # 🔔 띵!
+                print("🔄 변환 중...")
+                
+                try:
                     # HTML 변환
                     html_result = convert_text_to_html(current_text)
                     
@@ -308,20 +337,11 @@ def main():
                     copy_html_to_clipboard(html_result)
                     
                     print("✅ 변환 완료! 워드에 바로 붙여넣을 수 있습니다.")
-                    print("-" * 60)
-                    
-                    last_hash = current_hash
-                
-                time.sleep(0.5)
-                
-            except Exception as e:
-                # 클립보드 접근 오류는 무시하고 계속 진행
-                time.sleep(0.5)
-                
+                except Exception as e:
+                    print(f"⚠️ 오류 발생: {e}")
+
     except KeyboardInterrupt:
-        print("\n\n" + "=" * 60)
-        print("⏹️  프로그램을 종료합니다.")
-        print("=" * 60)
+        print("\n\n👋 강제 종료됨")
 
 if __name__ == "__main__":
     main()
