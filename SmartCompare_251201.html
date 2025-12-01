@@ -1,0 +1,2133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartCompare - 파일 비교 도구</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background: #2d2d30;
+            color: #333;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2d2d30;
+            padding: 10px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        /* 추가된 문자열 스타일 */
+        .subtitle {
+            font-size: 12px;
+            color: #ccc;
+            margin-left: 10px;
+            font-weight: normal;
+        }
+
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* 수정된 컨트롤 그룹: 파일 조작 버튼을 여기에 배치 */
+        .file-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-right: 20px; /* 우측 버튼과의 간격 확보 */
+        }
+        
+        /* ★ [추가] 자동 저장 주기 컨트롤 스타일 */
+        .auto-save-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #ccc;
+            font-size: 12px;
+            margin-left: 15px;
+        }
+
+        .auto-save-control input[type="range"] {
+            width: 100px;
+            margin: 0 5px;
+        }
+
+        .auto-save-control input[type="number"] {
+            width: 40px;
+            padding: 2px 5px;
+            border: 1px solid #3e3e42;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 3px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1177bb;
+        }
+
+        button:active {
+            background: #0d5a8f;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        /* ★ [추가] 삭제 버튼 빨강색 스타일 */
+        #deleteBtn {
+            background: #f44336; /* 빨강 */
+        }
+        #deleteBtn:hover {
+            background: #e53935; /* 진한 빨강 */
+        }
+        #deleteBtn:active {
+            background: #d32f2f; /* 아주 진한 빨강 */
+        }
+
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-wrapper label {
+            background: #0e639c;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+            display: inline-block;
+        }
+
+        .file-input-wrapper label:hover {
+            background: #1177bb;
+        }
+
+		/* ★ [수정] 높이 계산: status-bar 제거로 73px 유지 */
+		.container {
+			display: flex;
+			height: calc(100vh - 53px); /* header (53px) */
+		}
+        
+        /* ★ [추가] 안내 문구 스타일 */
+        #autoSaveGuide {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #333;
+            color: #fff;
+            padding: 8px 20px;
+            font-size: 12px;
+            z-index: 5000;
+            display: none;
+            border-top: 1px solid #3e3e42;
+        }
+        #autoSaveGuide.active {
+            display: block;
+        }
+        #autoSaveGuide .close-btn {
+            float: right;
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: -3px;
+        }
+
+
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #3e3e42;
+        }
+
+        .panel:last-child {
+            border-right: none;
+        }
+
+        .panel-header {
+            background: #252526;
+            padding: 10px 15px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-info {
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        .file-status {
+            font-size: 11px;
+            color: #888;
+            margin-left: 5px;
+        }
+
+        .header-btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .header-btn:hover {
+            background: #1177bb;
+        }
+
+        .header-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .editor-container {
+            flex: 1;
+            overflow: auto;
+            background: #e8e8e8;
+            position: relative;
+        }
+
+        .line-row {
+            display: flex;
+            min-height: 18px;
+            line-height: 18px;
+            font-size: 13px;
+        }
+
+        .line-number {
+            min-width: 50px;
+            padding: 0 8px;
+            text-align: right;
+            color: #666;
+            background: #d0d0d0;
+            border-right: 1px solid #999;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+/* [추가] 텍스트 입력 영역의 렌더링 안정화 */
+        .line-content {
+            min-height: 18px;   /* 줄 높이를 명시적으로 지정하여 불안정하게 축소되는 현상 방지 */
+            line-height: 18px;  /* 줄 높이 기준 명확화 */
+        }
+
+        .line-row.diff-added .line-content {
+            background: #c8f0c8;
+        }
+
+        .line-row.diff-removed .line-content {
+            background: #f0c8c8;
+        }
+
+        .line-row.diff-modified .line-content {
+            background: #f0e8c8;
+        }
+
+        .line-row.diff-added {
+            border-left: 3px solid #4caf50;
+        }
+
+        .line-row.diff-removed {
+            border-left: 3px solid #f44336;
+        }
+
+        .line-row.diff-modified {
+            border-left: 3px solid #ff9800;
+        }
+
+        .line-row.diff-empty {
+            background: #d8d8d8;
+        }
+
+        .line-row.diff-empty .line-content {
+            background: #d8d8d8;
+        }
+
+        .line-row.diff-empty .line-number {
+            background: #c0c0c0;
+        }
+
+        .line-row.selected {
+            background: rgba(14, 99, 156, 0.2) !important;
+        }
+        
+        /* ★ [추가] 우측 패널만 선택될 때 스타일 */
+        #rightEditor .line-row.selected {
+            background: rgba(14, 99, 156, 0.2) !important;
+        }
+        
+        /* ★ [추가] 좌측 패널만 선택될 때 스타일 */
+        #leftEditor .line-row.selected {
+            background: rgba(14, 99, 156, 0.2) !important;
+        }
+
+
+        .line-content[contenteditable="true"] {
+            cursor: text;
+        }
+
+/* [수정] 편집 포커스 시 테두리 제거 (일반 에디터처럼 변경) */
+        .line-content[contenteditable="true"]:focus {
+            outline: none; /* 파란색 박스 테두리 제거 */
+        }
+
+        .search-highlight {
+            background: yellow !important;
+            color: #000;
+            font-weight: normal;
+        }
+
+        .search-highlight.current {
+            background: orange !important;
+            color: #000;
+        }
+
+        /* ★ [삭제] status-bar CSS 제거 */
+        /* .status-bar { ... } */
+        
+        /* 네비게이션 버튼 삭제됨 */
+
+        /* 로그 패널 */
+        .log-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 150px;
+            background: #1e1e1e;
+            border-top: 1px solid #3e3e42;
+            z-index: 3000;
+            display: none;
+            flex-direction: column;
+        }
+
+        .log-panel.active {
+            display: flex;
+        }
+
+        .log-header {
+            background: #252526;
+            padding: 5px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #3e3e42;
+        }
+
+        .log-title {
+            color: #ccc;
+            font-size: 12px;
+        }
+
+        .log-content {
+            flex: 1;
+            overflow: auto;
+            padding: 5px;
+            font-size: 11px;
+            color: #d4d4d4;
+            font-family: 'Consolas', monospace;
+        }
+
+        .log-entry {
+            padding: 2px 5px;
+            border-bottom: 1px solid #333;
+        }
+
+        .log-entry.error {
+            color: #f44336;
+        }
+
+        .log-entry.warn {
+            color: #fbbf24;
+        }
+
+        .log-entry.info {
+            color: #4caf50;
+        }
+
+        /* 찾기/바꾸기 다이얼로그 */
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 2000;
+        }
+
+        .dialog-overlay.active {
+            display: block;
+        }
+
+        .dialog {
+            position: fixed;
+            top: 15%; /* 상단에서 띄우기 */
+            left: 15%; /* 초기 위치를 왼쪽으로 설정 */
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            padding: 0;
+            min-width: 400px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 2001;
+            display: none;
+            transition: left 0.3s ease-out; /* 위치 변경 애니메이션 추가 */
+        }
+
+        .dialog.active {
+            display: block;
+        }
+
+        .dialog-header {
+            background: linear-gradient(135deg, #1177bb 0%, #0e639c 100%);
+            color: #fff;
+            font-size: 16px;
+            padding: 12px 20px;
+            font-weight: bold;
+            border-radius: 8px 8px 0 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .dialog-body {
+            padding: 20px;
+        }
+
+        .dialog-content {
+            margin-bottom: 15px;
+        }
+
+        .dialog-row {
+            margin-bottom: 10px;
+        }
+
+        .dialog-label {
+            color: #ccc;
+            font-size: 13px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .dialog-input {
+            width: 100%;
+            padding: 6px 10px;
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            color: #d4d4d4;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        .dialog-input:focus {
+            outline: none;
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+        }
+
+        .dialog-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .dialog-btn {
+            padding: 8px 16px;
+            background: #0e639c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .dialog-btn:hover {
+            background: #1177bb;
+        }
+
+        .dialog-btn.secondary {
+            background: #666;
+        }
+
+        .dialog-btn.secondary:hover {
+            background: #777;
+        }
+        
+        .dialog-btn.active {
+            background: #1177bb;
+            box-shadow: 0 0 0 2px rgba(17, 119, 187, 0.3);
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #ccc;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .search-target {
+            color: #fbbf24;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+		/* [추가] 선택된 줄의 줄 번호 강조 스타일 */
+        .line-row.selected .line-number {
+            background-color: #0e639c !important; /* 진한 파란색 배경 */
+            color: #ffffff !important;           /* 흰색 글자 */
+            font-weight: bold;                   /* 글자 굵게 */
+            border-right: 1px solid #005a8d;     /* 경계선 색상 변경 */
+        }
+
+		/* === (1) 내용 배경 제거 — 중요!!! === */
+		.line-content {
+			background: transparent !important;
+		}
+
+		/* === (2) 전체 줄 배경 색 적용 === */
+		.line-row.diff-added {
+			background: #c8f0c8 !important;
+		}
+		.line-row.diff-removed {
+			background: #f0c8c8 !important;
+		}
+		.line-row.diff-modified {
+			background: #f0e8c8 !important;
+		}
+		.line-row.diff-empty {
+			background: #d8d8d8 !important;
+		}
+
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">
+            🔍 SmartCompare
+            <span id="versionString" class="subtitle"></span>
+        </div>
+        
+        <div class="file-controls">
+            <button class="header-btn" id="copyToRightBtn" title="선택한 블록을 우측으로 복사">→ 우측으로 복사</button>
+            <button class="header-btn" id="findLeftOnlyBtn" title="왼쪽 파일에서 찾기 (Ctrl+F)">🔍 좌측 찾기</button>
+            <button class="header-btn" id="findRightOnlyBtn" title="오른쪽 파일에서 찾기 (Ctrl+F)">🔍 우측 찾기</button>
+            <button class="header-btn" id="deleteBtn" title="선택한 줄을 우측 파일에서 삭제">🗑️ 삭제</button> 
+            
+            <div class="auto-save-control">
+                <label for="autoSaveSecondsInput">저장 주기 (분):</label>
+                <input type="range" id="autoSaveSecondsInput" min="1" max="20" step="1" value="10"> 
+                <span id="autoSaveCurrentValue">10분</span> 
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="undoBtn" title="실행 취소 (Ctrl+Z)">↶ 실행 취소</button>
+            <button id="redoBtn" title="재실행 (Ctrl+Y)">↷ 재실행</button>
+            <button id="toggleLogBtn">📋 로그</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <span class="file-info">
+                        <span id="leftFileName">파일을 선택하세요</span>
+                        <span class="file-status">(읽기 전용)</span>
+                    </span>
+                </div>
+                <div class="panel-header-right">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="leftFile" accept=".txt,.md,.js,.html,.css,.json,.xml,.log,.py">
+                        <label for="leftFile" class="header-btn">파일 열기</label>
+                    </div>
+                </div>
+            </div>
+            <div class="editor-container" id="leftEditor" data-panel="left"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <span class="file-info">
+                        <span id="rightFileName">파일을 선택하세요</span>
+                        <span class="file-status">(편집 가능)</span>
+                    </span>
+                </div>
+                <div class="panel-header-right">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="rightFile" accept=".txt,.md,.js,.html,.css,.json,.xml,.log,.py">
+                        <label for="rightFile" class="header-btn">파일 열기</label>
+                    </div>
+                    <button class="header-btn" id="saveBtn" title="저장 (Ctrl+S)">💾 저장</button>
+                </div>
+            </div>
+            <div class="editor-container" id="rightEditor" data-panel="right"></div>
+        </div>
+    </div>
+    
+    <div class="log-panel" id="logPanel">
+        <div class="log-header">
+            <span class="log-title">📋 디버그 로그</span>
+            <button class="header-btn" id="clearLogBtn">Clear</button>
+        </div>
+        <div class="log-content" id="logContent"></div>
+    </div>
+
+    <div class="dialog-overlay" id="findOverlay"></div>
+    <div class="dialog" id="findDialog">
+        <div class="dialog-header">🔍 찾기</div>
+        <div class="dialog-body">
+            <div class="dialog-content">
+                <div class="dialog-row">
+                    <label class="dialog-label">찾을 내용:</label>
+                    <input type="text" class="dialog-input" id="findInput" placeholder="검색어 입력">
+                </div>
+                <div class="search-target" id="findTarget"></div>
+                <div class="checkbox-group">
+                    <div class="checkbox-row">
+                        <input type="checkbox" id="findCaseSensitive">
+                        <label for="findCaseSensitive">대소문자 구분</label>
+                    </div>
+                    <div class="checkbox-row">
+                        <input type="checkbox" id="findWholeWord">
+                        <label for="findWholeWord">단어 전체 일치</label>
+                    </div>
+                </div>
+            </div>
+            <div class="dialog-buttons">
+                <button class="dialog-btn" id="findNextBtn">다음 찾기</button>
+                <button class="dialog-btn" id="findPrevBtn">이전 찾기</button>
+                <button class="dialog-btn secondary" id="findCloseBtn">닫기</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="autoSaveGuide">
+        <button class="close-btn" onclick="document.getElementById('autoSaveGuide').classList.remove('active');">✕</button>
+        **[안내]** 파일 자동 저장/수동 저장 시 다운로드 확인 창이 뜨는 것을 막으려면, 브라우저 다운로드 설정을 변경해야 합니다. 
+        <br>👉 **Chrome 기준:** 설정 > 다운로드 > '다운로드 전에 각 파일 저장 위치 확인'을 **비활성화**하세요.
+    </div>
+
+    <script>
+        // ★ [수정] 자동 저장 주기 설정 (1분 ~ 20분) - 초기값 10분
+        const DEFAULT_AUTO_SAVE_MINUTES = 10;
+        const LOCAL_STORAGE_KEY = 'autoSaveMinutes';
+        
+        // --- 수정하기 쉬운 버전 문자열 정의 ---
+        const VERSION_STRING = '(주)파워젬 V251202_유효열'; 
+        // ------------------------------------
+        
+        // 제목 문자열 삽입
+        document.getElementById('versionString').textContent = VERSION_STRING;
+        
+        
+        // 로그 시스템
+        class Logger {
+            // ... (Logger 클래스 내용은 이전과 동일)
+            constructor() {
+                this.logs = [];
+                this.maxLogs = 100;
+            }
+
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = { timestamp, message, type };
+                this.logs.push(logEntry);
+                
+                if (this.logs.length > this.maxLogs) {
+                    this.logs.shift();
+                }
+
+                this.render();
+                console.log(`[${type.toUpperCase()}] ${timestamp} - ${message}`);
+            }
+
+            info(message) {
+                this.log(message, 'info');
+            }
+
+            warn(message) {
+                this.log(message, 'warn');
+            }
+
+            error(message) {
+                this.log(message, 'error');
+            }
+
+            render() {
+                const logContent = document.getElementById('logContent');
+                if (logContent) {
+                    logContent.innerHTML = this.logs.map(log => 
+                        `<div class="log-entry ${log.type}">[${log.timestamp}] ${log.message}</div>`
+                    ).join('');
+                    logContent.scrollTop = logContent.scrollHeight;
+                }
+            }
+
+            clear() {
+                this.logs = [];
+                this.render();
+            }
+        }
+
+        const logger = new Logger();
+
+        // Myers Diff 알고리즘 구현
+        class MyersDiff {
+			constructor(left, right) {
+                // 원본 코드는 공백 정규화를 생성자에서 했으나,
+                // SmartCompare 클래스에서 라인 단위로 처리하므로 여기서는 사용하지 않습니다.
+                this.left = left.map(line => line.replace(/\s+/g, ' ').trim());
+                this.right = right.map(line => line.replace(/\s+/g, ' ').trim());
+            }
+
+            compute() {
+                const n = this.left.length;
+                const m = this.right.length;
+                const max = n + m;
+                const v = {};
+                const trace = [];
+
+                v[1] = 0;
+                for (let d = 0; d <= max; d++) {
+                    trace.push({...v});
+					for (let k = -d; k <= d; k += 2) {
+                        let x;
+                        if (k === -d || (k !== d && v[k - 1] < v[k + 1])) {
+                            x = v[k + 1];
+                        } else {
+                            x = v[k - 1] + 1;
+                        }
+                        let y = x - k;
+
+                        while (x < n && y < m) {
+                            const leftNorm = this.left[x].replace(/\s+/g, ' ').trim();
+                            const rightNorm = this.right[y].replace(/\s+/g, ' ').trim();
+                            // console.log(`비교 [${x},${y}]:`, JSON.stringify(this.left[x]), 'vs', JSON.stringify(this.right[y]));
+                            // console.log(`정규화:`, JSON.stringify(leftNorm), 'vs', JSON.stringify(rightNorm), '같음:', leftNorm === rightNorm);
+                            if (leftNorm !== rightNorm) break;
+                            x++;
+                            y++;
+                        }
+
+                        v[k] = x;
+
+                        if (x >= n && y >= m) {
+                            return this.backtrack(trace, n, m);
+                        }
+                    }
+                }
+                return this.backtrack(trace, n, m);
+            }
+
+            backtrack(trace, n, m) {
+                const result = [];
+                let x = n;
+                let y = m;
+
+                for (let d = trace.length - 1; d >= 0; d--) {
+                    const v = trace[d];
+                    const k = x - y;
+
+                    let prevK;
+                    if (k === -d || (k !== d && v[k - 1] < v[k + 1])) {
+                        prevK = k + 1;
+                    } else {
+                        prevK = k - 1;
+                    }
+
+                    const prevX = v[prevK];
+                    const prevY = prevX - prevK;
+
+                    while (x > prevX && y > prevY) {
+                        result.unshift({ type: 'equal', leftIdx: x - 1, rightIdx: y - 1 });
+                        x--;
+                        y--;
+                    }
+
+                    if (d > 0) {
+                        if (x === prevX) {
+                            result.unshift({ type: 'added', leftIdx: -1, rightIdx: y - 1 });
+                            y--;
+                        } else {
+                            result.unshift({ type: 'removed', leftIdx: x - 1, rightIdx: -1 });
+                            x--;
+                        }
+                    }
+                }
+
+                return result;
+            }
+        }
+
+        class UltraCompare {
+            constructor() {
+                this.leftContent = '';
+                this.rightContent = '';
+                this.leftFile = null;
+                this.rightFile = null;
+                this.rightFileName = '';
+                this.diffBlocks = [];
+                this.currentDiffIndex = -1;
+                this.selectedDiffBlocks = [];  // 복수 선택 지원
+                this.lastFocusedPanel = 'right';
+                
+                // Undo/Redo 스택
+                this.undoStack = [];
+                this.redoStack = [];
+                this.maxUndoStack = 50;
+                
+                // 우측 파일 보호 상태
+                this.isRightEditable = false;
+                
+                // 자동 저장 관련
+                this.backupPath = null;
+                this.lastSavedContent = ''; // ★ 최종 백업된 내용
+                this.autoSaveIntervalId = null; // ★ 자동 저장 타이머 ID
+                
+                // 찾기/바꾸기
+                this.searchResults = [];
+                this.currentSearchIndex = -1;
+                this.searchPanel = 'right';
+                
+                this.init();
+            }
+
+            init() {
+				const leftEditor = document.getElementById('leftEditor');
+                
+				leftEditor.addEventListener("keydown", (e) => {
+					if (e.code === "Space") {
+						e.preventDefault();
+						return false;
+					}
+				});
+
+				/* ---------------------- 스크롤 보조 차단 (window/wheel) ---------------------- */
+				leftEditor.addEventListener("wheel", (e) => {
+					// 왼쪽 창이 활성화된 상태에서 마우스 휠 스크롤 방지
+					if (document.activeElement === leftEditor) {
+						e.preventDefault();
+					}
+				}, { passive: false });
+	
+                logger.info('SmartCompare 초기화');
+                
+                // ★ [수정] 자동 저장 주기 설정 로직
+                this.loadAutoSaveSetting();
+                
+                const inputElement = document.getElementById('autoSaveSecondsInput');
+                const currentValueSpan = document.getElementById('autoSaveCurrentValue');
+                
+                if (inputElement) {
+                    // 초기값 표시
+                    currentValueSpan.textContent = `${inputElement.value}분`;
+                    
+                    // 슬라이드 바 값 변경 시 실시간 표시
+                    inputElement.addEventListener('input', (e) => {
+                        currentValueSpan.textContent = `${e.target.value}분`;
+                    });
+                    
+                    // 슬라이드 바 사용 완료(change) 시 설정 저장 및 타이머 재시작
+                    inputElement.addEventListener('change', () => this.saveAutoSaveSetting());
+                }
+                
+                // 로그 버튼
+                document.getElementById('toggleLogBtn').addEventListener('click', () => this.toggleLog());
+                document.getElementById('clearLogBtn').addEventListener('click', () => logger.clear());
+                
+                // 파일 핸들러
+                document.getElementById('leftFile').addEventListener('change', (e) => this.handleLeftFile(e));
+                document.getElementById('rightFile').addEventListener('change', (e) => this.handleRightFile(e));
+                
+                // 기본 버튼
+                document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+                document.getElementById('redoBtn').addEventListener('click', () => this.redo());
+                
+                // 헤더에 분리된 찾기 버튼
+                document.getElementById('copyToRightBtn').addEventListener('click', () => this.copyToRight());
+                // ★ [수정] ID 변경
+                document.getElementById('deleteBtn').addEventListener('click', () => this.deleteSelectedLines()); 
+                document.getElementById('findLeftOnlyBtn').addEventListener('click', () => this.openFindDialog('left')); // 좌측 찾기
+                document.getElementById('findRightOnlyBtn').addEventListener('click', () => this.openFindDialog('right')); // 우측 찾기
+                
+                // 저장 버튼 (수정됨)
+                document.getElementById('saveBtn').addEventListener('click', () => this.saveFile());
+                
+                // 찾기 다이얼로그
+                document.getElementById('findNextBtn').addEventListener('click', () => this.findNext());
+                document.getElementById('findPrevBtn').addEventListener('click', () => this.findPrev());
+                document.getElementById('findCloseBtn').addEventListener('click', () => this.closeFindDialog());
+                document.getElementById('findOverlay').addEventListener('click', () => this.closeFindDialog());
+                
+                // 패널 포커스 추적
+                document.getElementById('leftEditor').addEventListener('mouseenter', () => {
+                    this.lastFocusedPanel = 'left';
+                });
+                document.getElementById('rightEditor').addEventListener('mouseenter', () => {
+                    this.lastFocusedPanel = 'right';
+                });
+                
+                // ★ [추가] 삭제 버튼 스타일 적용 (ID 변경에 맞춰)
+                const deleteButton = document.getElementById('deleteBtn');
+                if (deleteButton) {
+                    deleteButton.style.background = '#f44336'; 
+                    deleteButton.onmouseover = () => deleteButton.style.background = '#e53935';
+                    deleteButton.onmouseout = () => deleteButton.style.background = '#f44336';
+                    deleteButton.onmousedown = () => deleteButton.style.background = '#d32f2f';
+                }
+
+                // 키보드 단축키
+                document.addEventListener('keydown', (e) => {
+                    // Ctrl+Z: Undo
+                    if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.undo();
+                    } 
+                    // Ctrl+Shift+Z 또는 Ctrl+Y: Redo
+                    else if ((e.ctrlKey && e.shiftKey && e.key === 'Z') || (e.ctrlKey && e.key === 'y')) {
+                        e.preventDefault();
+                        this.redo();
+                    } 
+                    // Ctrl+S: 저장
+                    else if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        this.saveFile(); // ★ [수정] Ctrl+S 입력 시 saveFile 호출
+                    } 
+                    // Ctrl+F: 찾기
+                    else if (e.ctrlKey && e.key === 'f') {
+                        e.preventDefault();
+                        this.openFindDialog(this.lastFocusedPanel || 'right');
+                    } 
+                    // Space: 스크롤 방지 (전체적으로)
+                    else if (e.key === ' ' || e.code === 'Space') {
+                        e.preventDefault();
+                        return false;
+                    }
+                });
+
+                // Space 키 전역 방지 (페이지 스크롤 완전 차단)
+                window.addEventListener('keydown', (e) => {
+                    if (e.key === ' ' || e.code === 'Space') {
+                        // 입력 필드에서는 Space 허용
+                        const activeElement = document.activeElement;
+                        const isInputField = activeElement && (
+                            activeElement.tagName === 'INPUT' || 
+                            activeElement.tagName === 'TEXTAREA' ||
+                            activeElement.isContentEditable
+                        );
+                        
+                        if (!isInputField) {
+                            e.preventDefault();
+                            return false;
+                        }
+                    }
+                }, { passive: false });
+
+                // ★ [삭제] status-bar 관련 초기화 로직 제거
+                this.updateStatus('준비됨');
+                this.updateUndoRedoButtons();
+            }
+            
+            // ★ [수정] 설정 불러오기 (분 단위)
+            loadAutoSaveSetting() {
+                const savedMinutes = localStorage.getItem(LOCAL_STORAGE_KEY);
+                
+                const inputElement = document.getElementById('autoSaveSecondsInput');
+                const currentValueSpan = document.getElementById('autoSaveCurrentValue');
+
+                if (inputElement) {
+                    let minutes;
+                    if (savedMinutes === null) {
+                        minutes = DEFAULT_AUTO_SAVE_MINUTES;
+                    } else {
+                        // 1분~20분 범위 적용
+                        minutes = Math.max(1, Math.min(20, parseInt(savedMinutes)));
+                    }
+                    inputElement.value = minutes;
+                    if (currentValueSpan) {
+                         currentValueSpan.textContent = `${minutes}분`; // 스팬 값 갱신
+                    }
+                }
+            }
+            
+            // ★ [수정] 설정 저장하기 (분 단위)
+            saveAutoSaveSetting() {
+                const inputElement = document.getElementById('autoSaveSecondsInput');
+                if (inputElement) {
+                    let minutes = parseInt(inputElement.value);
+                    // 1분~20분 제한
+                    minutes = Math.max(1, Math.min(20, minutes)); 
+                    inputElement.value = minutes;
+                    localStorage.setItem(LOCAL_STORAGE_KEY, minutes);
+                    logger.info(`저장 주기 설정됨: ${minutes}분`);
+                    
+                    // 설정 변경 후 자동 저장 타이머 재시작
+                    if (this.autoSaveIntervalId || this.rightContent) {
+                        this.startAutoSaveCheck();
+                    }
+                }
+            }
+            
+            // ★ [수정] 자동 저장 검사 시작 (분 단위)
+            startAutoSaveCheck() {
+                // 이전 타이머가 있다면 클리어
+                if (this.autoSaveIntervalId) {
+                    clearInterval(this.autoSaveIntervalId);
+                }
+                
+                // 설정된 분 값 가져오기
+                const inputElement = document.getElementById('autoSaveSecondsInput');
+                const minutes = inputElement ? Math.max(1, Math.min(20, parseInt(inputElement.value))) : DEFAULT_AUTO_SAVE_MINUTES;
+                
+                // ★ [수정] 분 단위를 밀리초로 변환 (minutes * 60초 * 1000ms)
+                const intervalMs = minutes * 60 * 1000; 
+                
+                this.autoSaveIntervalId = setInterval(() => {
+                    this.checkAndBackupFile();
+                }, intervalMs);
+                
+                logger.info(`자동 저장 검사 시작 (주기: ${minutes}분)`);
+            }
+            
+            // ★ [추가] 수정 사항이 있을 때만 백업
+            checkAndBackupFile() {
+                if (!this.rightContent || !this.rightFileName) {
+                    // 오른쪽 파일이 로드되지 않았으면 중단
+                    return;
+                }
+                
+                // 현재 내용이 마지막 저장 내용과 다를 때만 백업
+                if (this.rightContent !== this.lastSavedContent) {
+                    this.backupFile();
+                }
+            }
+
+
+            toggleLog() {
+                const logPanel = document.getElementById('logPanel');
+                logPanel.classList.toggle('active');
+            }
+
+            getSelectedText() {
+                const selection = window.getSelection();
+                if (selection && selection.toString().trim()) {
+                    return selection.toString().trim();
+                }
+                return '';
+            }
+
+            handleLeftFile(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    logger.info(`왼쪽 파일 로드 시작: ${file.name}`);
+                    this.leftFile = file;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        this.leftContent = event.target.result;
+                        logger.info(`왼쪽 파일 내용 길이: ${this.leftContent.length} 문자`);
+                        
+                        // ★ [수정] 왼쪽 파일 이름 표시
+                        document.getElementById('leftFileName').textContent = file.name;
+                        
+                        this.updateStatus(`왼쪽 파일 로드됨: ${file.name}`);
+                        
+                        // 왼쪽 파일만 있어도 표시
+                        if (this.rightContent) {
+                            this.autoCompare();
+                        } else {
+                            this.renderLeftOnly();
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            }
+
+            handleRightFile(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    logger.info(`오른쪽 파일 로드 시작: ${file.name}`);
+                    this.rightFile = file;
+                    this.rightFileName = file.name;
+                    this.backupPath = file.name.substring(0, file.name.lastIndexOf('.')); // 확장자 앞까지 경로/이름 저장
+                    
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        this.rightContent = event.target.result;
+                        
+                        // ★ [수정] 파일 로드 직후 원본 상태를 Undo 스택의 첫 번째 항목으로 저장합니다.
+                        this.undoStack = [this.rightContent];
+                        this.redoStack = [];
+                        this.updateUndoRedoButtons();
+                        
+                        // ★ [수정] 마지막 저장 내용을 현재 내용으로 초기화하고 자동 저장 검사를 시작합니다.
+                        this.lastSavedContent = this.rightContent; 
+                        this.startAutoSaveCheck();
+                        
+                        // ★ [추가] 안내 문구 표시
+                        document.getElementById('autoSaveGuide').classList.add('active');
+
+                        // 우측 파일 로드 시 보호 상태 초기화 (편집 불가)
+                        this.isRightEditable = false;
+                        
+                        logger.info(`오른쪽 파일 내용 길이: ${this.rightContent.length} 문자`);
+                        document.getElementById('rightFileName').textContent = file.name;
+                        this.updateStatus(`오른쪽 파일 로드됨: ${file.name} (보호됨 - 좌→우 복사 후 편집 가능)`);
+                        this.autoCompare();
+                    };
+                    reader.readAsText(file);
+                }
+            }
+
+            renderLeftOnly() {
+                logger.info('왼쪽 파일만 렌더링');
+                const leftEditor = document.getElementById('leftEditor');
+                const leftLines = this.leftContent.split('\n');
+                
+                let leftHTML = '';
+                leftLines.forEach((line, i) => {
+                    const content = this.escapeHtml(line);
+                    leftHTML += `<div class="line-row">
+                        <div class="line-number">${i + 1}</div>
+                        <div class="line-content">${content || ' '}</div>
+                    </div>`;
+                });
+                
+                leftEditor.innerHTML = leftHTML;
+                this.attachClickListeners();
+            }
+
+            autoCompare() {
+                if (this.leftContent && this.rightContent) {
+                    logger.info('자동 비교 실행');
+                    this.compare();
+                }
+            }
+
+            compare() {
+                logger.info('비교 시작');
+                if (!this.leftContent && !this.rightContent) {
+                    this.updateStatus('비교할 파일이 없습니다');
+                    return;
+                }
+
+                const leftLines = this.leftContent.split('\n');
+                const rightLines = this.rightContent.split('\n');
+/*<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<*/
+				// === 공백 정규화: 탭 → 공백 4칸, 끝 공백 제거 ===
+				const normalize = (line) =>
+					line.replace(/\t/g, "    ")   // 탭을 공백 4개로 변환
+						.replace(/\s+$/g, "");    // 줄 끝 공백 제거
+
+				const leftNorm = leftLines.map(normalize);
+				const rightNorm = rightLines.map(normalize);
+/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+
+                logger.info(`왼쪽 라인 수: ${leftLines.length}, 오른쪽 라인 수: ${rightLines.length}`);
+
+                const differ = new MyersDiff(leftNorm, rightNorm);
+                const diffResult = differ.compute();
+
+                logger.info(`Diff 결과: ${diffResult.length} 항목`);
+
+                this.renderComparison(diffResult, leftLines, rightLines);
+
+                // ★ [삭제] updateDiffStats 호출 제거
+                // const stats = this.calculateStats(diffResult);
+                // this.updateDiffStats(stats);
+                
+                logger.info('비교 완료');
+            }
+
+            renderComparison(diffResult, leftLines, rightLines) {
+                logger.info('렌더링 시작');
+                
+                const leftEditor = document.getElementById('leftEditor');
+                const rightEditor = document.getElementById('rightEditor');
+
+                // 스크롤 위치와 포커스 저장
+                const scrollTop = rightEditor.scrollTop;
+                const activeElement = document.activeElement;
+                const activeLineNumber = activeElement && activeElement.classList.contains('line-content') ? 
+                    activeElement.dataset.line : null;
+                const cursorPosition = activeElement ? this.getCursorPosition(activeElement) : 0;
+                
+                logger.info(`스크롤 위치: ${scrollTop}, 활성 라인: ${activeLineNumber}, 커서 위치: ${cursorPosition}`);
+
+                let leftHTML = '';
+                let rightHTML = '';
+                
+                let leftLineNum = 1;
+                let rightLineNum = 1;
+
+                // 기존 선택 상태 저장을 위해 data-index를 기준으로 선택된 블록을 찾습니다.
+                const selectedIndices = new Set(this.selectedDiffBlocks.map(b => b.index));
+
+                for (let i = 0; i < diffResult.length; i++) {
+                    const item = diffResult[i];
+                    const isSelected = selectedIndices.has(i.toString()) ? ' selected' : '';
+
+                    if (item.type === 'equal') {
+                        const leftContent = this.escapeHtml(leftLines[item.leftIdx]);
+                        const rightContent = this.escapeHtml(rightLines[item.rightIdx]);
+
+                        leftHTML += `<div class="line-row${isSelected}" data-index="${i}" data-panel="left" data-type="equal">
+                            <div class="line-number">${leftLineNum}</div>
+                            <div class="line-content">${leftContent || ' '}</div>
+                        </div>`;
+
+                        rightHTML += `<div class="line-row${isSelected}" data-index="${i}" data-panel="right" data-type="equal">
+                            <div class="line-number">${rightLineNum}</div>
+                            <div class="line-content" contenteditable="${this.isRightEditable}" data-line="${rightLineNum}">${rightContent || ' '}</div>
+                        </div>`;
+
+                        leftLineNum++;
+                        rightLineNum++;
+
+                    } else if (item.type === 'removed') {
+                        const leftContent = this.escapeHtml(leftLines[item.leftIdx]);
+
+                        leftHTML += `<div class="line-row diff-removed${isSelected}" data-index="${i}" data-panel="left" data-type="removed">
+                            <div class="line-number">${leftLineNum}</div>
+                            <div class="line-content">${leftContent || ' '}</div>
+                        </div>`;
+
+                        rightHTML += `<div class="line-row diff-empty${isSelected}" data-index="${i}" data-panel="right" data-type="empty">
+                            <div class="line-number"></div>
+                            <div class="line-content"> </div>
+                        </div>`;
+
+                        leftLineNum++;
+
+                    } else if (item.type === 'added') {
+                        const rightContent = this.escapeHtml(rightLines[item.rightIdx]);
+
+                        leftHTML += `<div class="line-row diff-empty${isSelected}" data-index="${i}" data-panel="left" data-type="empty">
+                            <div class="line-number"></div>
+                            <div class="line-content"> </div>
+                        </div>`;
+
+                        rightHTML += `<div class="line-row diff-added${isSelected}" data-index="${i}" data-panel="right" data-type="added">
+                            <div class="line-number">${rightLineNum}</div>
+                            <div class="line-content" contenteditable="${this.isRightEditable}" data-line="${rightLineNum}">${rightContent || ' '}</div>
+                        </div>`;
+
+                        rightLineNum++;
+                    }
+                }
+
+                leftEditor.innerHTML = leftHTML;
+                rightEditor.innerHTML = rightHTML;
+
+                // 스크롤 위치 복원
+                rightEditor.scrollTop = scrollTop;
+ 
+                logger.info('DOM 업데이트 완료');
+
+                this.attachEditListeners();
+                this.attachClickListeners();
+                this.syncScroll();
+                
+                logger.info('렌더링 완료');
+            }
+
+            getCursorPosition(element) {
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const preCaretRange = range.cloneRange();
+                    preCaretRange.selectNodeContents(element);
+                    preCaretRange.setEnd(range.endContainer, range.endOffset);
+                    return preCaretRange.toString().length;
+                }
+                return 0;
+            }
+
+            setCursorPosition(element, position) {
+                const range = document.createRange();
+                const sel = window.getSelection();
+                
+                try {
+                    let charIndex = 0;
+                    let nodeStack = [element];
+                    let node;
+                    let foundStart = false;
+
+                    while (!foundStart && (node = nodeStack.pop())) {
+                        if (node.nodeType === 3) { // TEXT_NODE
+                            const nextCharIndex = charIndex + node.length;
+                            if (position >= charIndex && position <= nextCharIndex) {
+                                range.setStart(node, position - charIndex);
+                                range.collapse(true);
+                                foundStart = true;
+                            }
+                            charIndex = nextCharIndex;
+                        } else {
+                            let i = node.childNodes.length;
+                            while (i--) {
+                                nodeStack.push(node.childNodes[i]);
+                            }
+                        }
+                    }
+
+                    if (!foundStart) {
+                        range.selectNodeContents(element);
+                        range.collapse(false);
+                    }
+
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                } catch (e) {
+                    logger.error(`커서 위치 설정 실패: ${e.message}`);
+                }
+            }
+
+            attachEditListeners() {
+                logger.info('편집 리스너 부착 시작');
+                const rightEditor = document.getElementById('rightEditor');
+                const editableLines = rightEditor.querySelectorAll('.line-content[contenteditable="true"]');
+
+                logger.info(`편집 가능 라인 수: ${editableLines.length}`);
+
+                editableLines.forEach((line, index) => {
+					line.addEventListener('focus', () => {
+                        // 우측 파일이 보호 상태이면 포커스 해제
+                        if (!this.isRightEditable) {
+                            line.blur();
+                            this.updateStatus('우측 파일은 보호되어 있습니다. 좌측에서 우측으로 복사 후 편집 가능합니다.');
+                            return;
+                        }
+						line._originalText = line.textContent;
+					});
+
+					line.addEventListener("blur", () => {
+                        // 우측 파일이 보호 상태이면 변경사항 무시
+                        if (!this.isRightEditable) {
+                            return;
+                        }
+                        
+						const newText = line.textContent;
+						const oldText = line._originalText;
+
+						if (newText !== oldText) {
+							this.saveToUndoStack();
+                            // blur 시 즉시 백업하는 로직 제거. 자동 저장 루틴에 맡김. 
+
+							const idx = parseInt(line.dataset.line) - 1;
+							const arr = this.rightContent.split("\n");
+							arr[idx] = newText;
+							this.rightContent = arr.join("\n");
+						}
+					});
+
+
+                    line.addEventListener('input', (e) => {
+                        logger.info(`라인 ${line.dataset.line} 입력: "${e.target.textContent}"`);
+                    });
+
+                    line.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            logger.info('Enter 키 차단');
+                        }
+                    });
+                });
+
+                logger.info('편집 리스너 부착 완료');
+            }
+
+
+			attachClickListeners() {
+                const allRows = document.querySelectorAll('.line-row');
+                
+                // 범위 선택을 위한 인덱스 초기화
+                if (typeof this.lastSelectedIndex === 'undefined') {
+                    this.lastSelectedIndex = null;
+                }
+
+                allRows.forEach(row => {
+                    const lineNumber = row.querySelector('.line-number');
+                    const panel = row.dataset.panel;
+                    
+                    if (lineNumber) {
+                        lineNumber.style.cursor = 'pointer';
+
+                        // [기능 수정] 클릭 이벤트: 줄 선택 (단일/다중/범위)
+                        lineNumber.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            
+                            const index = parseInt(row.dataset.index);
+                            const clickedPanel = row.dataset.panel;
+                            
+                            // 1. Shift + 클릭: 범위 선택
+                            if (e.shiftKey && this.lastSelectedIndex !== null) {
+                                const start = Math.min(this.lastSelectedIndex, index);
+                                const end = Math.max(this.lastSelectedIndex, index);
+
+                                this.selectedDiffBlocks = [];
+                                document.querySelectorAll('.line-row.selected').forEach(r => r.classList.remove('selected'));
+                                
+                                // 클릭된 패널에만 하이라이트 적용
+                                const targetEditorId = clickedPanel === 'left' ? '#leftEditor' : '#rightEditor';
+
+
+                                for (let i = start; i <= end; i++) {
+                                    const targetRow = document.querySelector(`${targetEditorId} .line-row[data-index="${i}"]`);
+
+                                    if (targetRow) {
+                                        this.selectedDiffBlocks.push({ index: i.toString(), row: targetRow, panel: targetRow.dataset.panel });
+                                        targetRow.classList.add('selected');
+                                    }
+                                }
+                                logger.info(`범위 선택됨: ${start} ~ ${end} (${targetEditorId})`);
+                                this.lastFocusedPanel = clickedPanel; // 마지막 포커스 패널 업데이트
+
+                            // 2. Ctrl + 클릭: 개별 다중 선택
+                            } else if (e.ctrlKey || e.metaKey) {
+                                // 현재 줄이 이미 선택되었는지 확인
+                                const blockIndex = this.selectedDiffBlocks.findIndex(b => parseInt(b.index) === index);
+                                
+                                // 이전에 선택된 블록이 없으면 현재 클릭된 패널을 기준 패널로 설정
+                                if (this.selectedDiffBlocks.length === 0) {
+                                    this.lastFocusedPanel = clickedPanel;
+                                }
+                                const targetPanel = this.lastFocusedPanel; // 현재 작업 중인 패널
+
+                                const targetRow = document.querySelector(`#${targetPanel}Editor .line-row[data-index="${index}"]`);
+
+                                if (blockIndex >= 0) {
+                                    // 선택 해제
+                                    this.selectedDiffBlocks.splice(blockIndex, 1);
+                                    if (targetRow) targetRow.classList.remove('selected');
+
+                                } else {
+                                    // 선택 추가
+                                    if (targetRow) { 
+                                        this.selectedDiffBlocks.push({ index: index.toString(), row: targetRow, panel: targetPanel });
+                                        targetRow.classList.add('selected');
+                                    }
+                                }
+                                this.lastSelectedIndex = index;
+                                logger.info(`다중 선택됨: ${index} (${targetPanel})`);
+
+                            // 3. 일반 클릭: 단일 선택
+                            } else {
+                                // 모든 선택 해제
+                                document.querySelectorAll('.line-row.selected').forEach(r => r.classList.remove('selected'));
+                                
+                                // 선택 초기화 후 현재 줄만 추가
+                                this.selectedDiffBlocks = [{ index: index.toString(), row, panel }];
+                                
+                                row.classList.add('selected'); // 현재 클릭된 줄만 하이라이트
+                                
+                                this.lastSelectedIndex = index;
+                                this.lastFocusedPanel = clickedPanel; // 단일 클릭 시 기준 패널 업데이트
+                                logger.info(`단일 선택됨: ${index} (${clickedPanel})`);
+                            }
+                        });
+                    }
+                });
+            }
+            
+            // ★ [수정] 선택된 줄 삭제 기능 (deleteSelectedBtn -> deleteBtn ID 변경 반영)
+            deleteSelectedLines() {
+                if (this.selectedDiffBlocks.length === 0) {
+                    this.updateStatus('삭제할 줄을 선택하세요.');
+                    return;
+                }
+                
+                // 삭제는 오른쪽 파일에서만 가능하며, 오른쪽 줄 번호가 있는 블록만 대상으로 합니다.
+                const rightLines = this.rightContent.split('\n');
+                const indicesToRemove = new Set();
+                
+                // 1. 선택된 블록의 실제 오른쪽 라인 번호를 수집
+                this.selectedDiffBlocks.forEach(block => {
+                    const rightRowElement = document.querySelector(`#rightEditor .line-row[data-index="${block.index}"]`);
+                    const lineNumEl = rightRowElement ? rightRowElement.querySelector('.line-number') : null;
+                    
+                    if (lineNumEl && lineNumEl.textContent && rightRowElement.dataset.type !== 'empty') {
+                        // 유효한 줄 번호가 있고, 빈 줄이 아닌 경우에만 삭제 목록에 추가
+                        const rightLineNum = parseInt(lineNumEl.textContent);
+                        indicesToRemove.add(rightLineNum - 1); // 0-based index
+                    }
+                });
+                
+                if (indicesToRemove.size === 0) {
+                     this.updateStatus('선택된 줄 중에서 오른쪽 파일에 존재하는 줄이 없습니다.');
+                     return;
+                }
+
+                this.saveToUndoStack(); // 삭제 전 상태 저장
+
+                // 2. 삭제할 인덱스를 내림차순으로 정렬 (인덱스 변경 방지)
+                const sortedIndices = Array.from(indicesToRemove).sort((a, b) => b - a);
+
+                // 3. 오른쪽 파일에서 해당 줄 삭제
+                sortedIndices.forEach(index => {
+                    if (index >= 0 && index < rightLines.length) {
+                        rightLines.splice(index, 1);
+                    }
+                });
+
+                this.rightContent = rightLines.join('\n');
+                
+                // 선택 상태 초기화
+                this.selectedDiffBlocks = [];
+                document.querySelectorAll('.line-row.selected').forEach(r => r.classList.remove('selected'));
+                
+                // 화면 갱신
+                this.compare(); 
+                this.updateUndoRedoButtons();
+                this.updateStatus(`${sortedIndices.length}개의 줄이 우측 파일에서 삭제되었습니다.`);
+                
+                // ★ [수정] 삭제 후 즉시 백업 체크 호출 제거. 자동 저장 루틴에 맡김.
+                // this.checkAndBackupFile();
+            }
+
+
+            saveToUndoStack() {
+                if (this.rightContent) {
+                    // Undo 스택 로직: 무조건 저장하여 변경 사항을 기록합니다.
+                    this.undoStack.push(this.rightContent);
+                    if (this.undoStack.length > this.maxUndoStack) {
+                        this.undoStack.shift();
+                    }
+                    this.redoStack = [];
+                    this.updateUndoRedoButtons();
+                    logger.info(`Undo 스택에 저장 (스택 크기: ${this.undoStack.length})`);
+                }
+            }
+
+			undo() {
+                // Undo 스택에 1개 이상의 항목이 있어야 합니다. (최소한 원본은 있어야 함)
+				if (this.undoStack.length > 1) {
+                    // 현재 상태를 pop하여 redoStack에 푸시
+					const cur = this.undoStack.pop();
+					this.redoStack.push(cur);
+                    
+                    // 이전 상태로 rightContent 복구 (스택의 맨 마지막 항목)
+					this.rightContent = this.undoStack[this.undoStack.length - 1];
+                    
+					this.compare(); 
+
+					this.updateUndoRedoButtons(); // 버튼 상태 업데이트
+					logger.info(`Undo 실행됨 (스택 크기: ${this.undoStack.length})`);
+				} else if (this.undoStack.length === 1) {
+                    // Undo 스택에 원본 하나만 남았을 경우 
+                    const cur = this.undoStack.pop();
+                    this.redoStack.push(cur);
+                    
+                    this.compare();
+                    this.updateUndoRedoButtons();
+                    logger.info(`Undo 실행됨 (최초 상태). 더 이상 되돌릴 항목이 없습니다.`);
+
+                } else {
+                    // 스택이 완전히 비었을 때 (length === 0)
+                    logger.warn('Undo 스택이 비었습니다. 실행 취소할 내용이 없습니다.');
+                }
+                
+                // Undo 후 즉시 백업 체크 호출 제거. 자동 저장 루틴에 맡김.
+                // this.checkAndBackupFile();
+			}
+
+			redo() {
+				if (this.redoStack.length > 0) {
+					const content = this.redoStack.pop();
+					this.undoStack.push(content);
+					this.rightContent = content;
+					this.compare(); // renderRightEditor 대신 compare 호출
+
+					this.updateUndoRedoButtons(); // 버튼 상태 업데이트
+					logger.info(`Redo 실행됨 (Redo 스택 크기: ${this.redoStack.length})`);
+				}
+                
+                // Redo 후 즉시 백업 체크 호출 제거. 자동 저장 루틴에 맡김.
+                // this.checkAndBackupFile();
+			}
+
+
+            updateUndoRedoButtons() {
+                // Undo는 스택에 원본을 포함하여 1개 이상 항목이 있을 때 활성화
+                document.getElementById('undoBtn').disabled = this.undoStack.length === 0;
+                document.getElementById('redoBtn').disabled = this.redoStack.length === 0;
+            }
+
+			copyToRight() {
+                // 선택된 블록이 없으면 알림
+                if (this.selectedDiffBlocks.length === 0) {
+                    alert('복사할 내용을 선택하세요.\n왼쪽 패널에서 줄 번호를 클릭(Ctrl, Shift)하여 선택할 수 있습니다.');
+                    return;
+                }
+                
+                // 선택된 블록 중 왼쪽 파일에 해당하는 블록만 필터링합니다.
+                const leftBlocks = this.selectedDiffBlocks.filter(b => b.panel === 'left');
+                
+                if (leftBlocks.length === 0) {
+                    this.updateStatus('복사할 내용은 왼쪽 파일에서 선택되어야 합니다.');
+                    return;
+                }
+
+                const leftLines = this.leftContent.split('\n');
+                const rightLines = this.rightContent.split('\n');
+
+                logger.info(`=== 일괄 복사 시작 ===`);
+                logger.info(`선택된 블록 수: ${leftBlocks.length}`);
+
+                // 1. 선택된 블록들의 '실제 왼쪽 라인 인덱스'를 수집
+                const selectedLeftIndices = new Set();
+                
+                leftBlocks.forEach(block => {
+                    const row = document.querySelector(`#leftEditor .line-row[data-index="${block.index}"]`);
+                    if (row) {
+                        const lineNumText = row.querySelector('.line-number').textContent;
+                        if (lineNumText) {
+                            const leftLineNum = parseInt(lineNumText);
+                            const leftArrayIndex = leftLineNum - 1; // 0-based index 변환
+                            selectedLeftIndices.add(leftArrayIndex);
+                        }
+                    }
+                });
+
+                // 2. Diff 재계산 (정확한 위치 병합을 위해)
+                const differ = new MyersDiff(leftLines, rightLines);
+                const diffResult = differ.compute();
+
+                const newRightLines = [];
+
+                // 3. Diff 결과를 순회하며 새 오른쪽 파일 내용 생성
+                for (let i = 0; i < diffResult.length; i++) {
+                    const item = diffResult[i];
+                    
+                    if (item.type === 'equal') {
+                        // 동일한 라인은 오른쪽 내용 유지
+                        newRightLines.push(rightLines[item.rightIdx]);
+                        
+                    } else if (item.type === 'removed') {
+                        // 왼쪽에만 있는 라인 (빨간색)
+                        const leftIdx = item.leftIdx;
+                        
+                        if (selectedLeftIndices.has(leftIdx)) {
+                            // 사용자가 선택한 범위에 포함됨 -> 오른쪽에 추가(복사)
+                            newRightLines.push(leftLines[leftIdx]);
+                            logger.info(`라인 복사됨: ${leftLines[leftIdx]}`);
+                        } else {
+                            // 선택되지 않음 -> 건너뜀
+                        }
+                        
+                    } else if (item.type === 'added') {
+                        // 오른쪽에만 있는 라인 (초록색) -> 유지
+                        newRightLines.push(rightLines[item.rightIdx]);
+                    }
+                }
+                
+                // 4. 변경 사항이 있는지 확인
+                const oldContent = this.rightContent;
+                this.rightContent = newRightLines.join('\n');
+                
+                if (oldContent !== this.rightContent) {
+                    // 5. 결과 적용 및 Undo 스택 저장
+                    this.saveToUndoStack(); // 내용 변경 후 저장
+                }
+
+                
+                // 우측 파일 편집 가능 상태로 변경
+                this.isRightEditable = true;
+                
+                logger.info(`=== 복사 완료 ===`);
+                
+                // 선택 초기화 및 화면 갱신
+                this.selectedDiffBlocks = [];
+                document.querySelectorAll('.line-row.selected').forEach(r => r.classList.remove('selected'));
+                
+                this.compare();
+                this.updateUndoRedoButtons(); // Undo 버튼 상태 업데이트
+                this.updateStatus(`${selectedLeftIndices.size}개 라인을 우측으로 복사했습니다 (우측 파일 편집 가능)`);
+                
+                // ★ [수정] 복사 후 즉시 백업 체크 호출 제거. 자동 저장 루틴에 맡김.
+                // this.checkAndBackupFile();
+            }         
+
+            // 찾기/바꾸기 대화 상자 위치 조정
+            moveDialogToOppositePanel(dialogElement) {
+                if (this.searchPanel === 'left') {
+                    // 왼쪽에서 찾을 때는 박스를 오른쪽 (화면 오른쪽 50% 지점)으로 이동
+                    dialogElement.style.left = 'calc(50% + 50px)';
+                } else {
+                    // 오른쪽에서 찾을 때는 박스를 왼쪽 (화면 왼쪽 50% 지점)으로 이동
+                    dialogElement.style.left = '15%'; 
+                }
+            }
+            
+            // 검색 패널 설정 함수 
+            setSearchPanel(panel, dialogType) {
+                this.searchPanel = panel;
+                
+                let targetId;
+                let dialogElement;
+                
+                if (dialogType === 'find') {
+                    targetId = 'findTarget';
+                    dialogElement = document.getElementById('findDialog');
+                } else {
+                    return; // 바꾸기 기능 제거
+                }
+                
+                // 타겟 텍스트 업데이트
+                const targetText = (this.searchPanel === 'left' ? '왼쪽 파일에서 검색' : '오른쪽 파일에서 검색');
+                    
+                document.getElementById(targetId).textContent = `📍 ${targetText}`;
+                
+                // 다이얼로그 위치 조정
+                this.moveDialogToOppositePanel(dialogElement);
+                
+                logger.info(`검색 패널 설정: ${panel}`);
+            }
+            
+            // 찾기 기능
+            openFindDialog(targetPanel) {
+                // targetPanel을 명시적으로 설정
+                this.searchPanel = targetPanel;
+                
+                const selectedText = this.getSelectedText();
+                if (selectedText) {
+                    document.getElementById('findInput').value = selectedText;
+                }
+                
+                // 검색 패널 버튼 상태 설정 및 위치 조정
+                this.setSearchPanel(this.searchPanel, 'find');
+                
+                document.getElementById('findDialog').classList.add('active');
+                document.getElementById('findOverlay').classList.add('active');
+                document.getElementById('findInput').focus();
+                document.getElementById('findInput').select();
+                
+                // 검색 결과를 초기화하고 새로 검색
+                this.performSearch(document.getElementById('findInput').value, 
+                                  document.getElementById('findCaseSensitive').checked, 
+                                  document.getElementById('findWholeWord').checked);
+            }
+
+            closeFindDialog() {
+                document.getElementById('findDialog').classList.remove('active');
+                document.getElementById('findOverlay').classList.remove('active');
+                this.clearHighlights();
+            }
+
+			playBeep() {
+                try {
+                    // Web Audio API를 사용하여 톤 생성
+                    const context = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = context.createOscillator();
+                    const gain = context.createGain();
+
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(440, context.currentTime); // 440 Hz (A4)
+                    gain.gain.setValueAtTime(0.5, context.currentTime);
+
+                    oscillator.connect(gain);
+                    gain.connect(context.destination);
+
+                    oscillator.start(context.currentTime);
+                    oscillator.stop(context.currentTime + 0.1); // 100ms 재생
+
+                    // 부드럽게 소리 소멸 (클릭 소리 방지)
+                    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.1);
+                } catch (e) {
+                    // 브라우저 지원하지 않을 경우 로그만 남김
+                    logger.warn("Web Audio API 오류로 경고음 재생 실패.");
+                }
+            }
+			
+findNext() {
+                const searchText = document.getElementById('findInput').value;
+                const caseSensitive = document.getElementById('findCaseSensitive').checked;
+                const wholeWord = document.getElementById('findWholeWord').checked;
+                
+                if (!searchText) return;
+
+                this.performSearch(searchText, caseSensitive, wholeWord);
+                
+                if (this.searchResults.length === 0) {
+                    this.updateStatus('검색 결과 없음');
+                    return;
+                }
+
+                const nextIndex = this.currentSearchIndex + 1;
+
+                if (nextIndex >= this.searchResults.length) {
+                    this.playBeep(); // ★ 경고음만 재생
+                    this.updateStatus('검색 결과의 끝입니다.');
+                    return; // ★ 롤오버 방지
+                }
+
+                this.currentSearchIndex = nextIndex;
+                this.highlightSearchResult(this.currentSearchIndex);
+                this.updateStatus(`${this.currentSearchIndex + 1} / ${this.searchResults.length}`);
+            }
+
+            findPrev() {
+                const searchText = document.getElementById('findInput').value;
+                const caseSensitive = document.getElementById('findCaseSensitive').checked;
+                const wholeWord = document.getElementById('findWholeWord').checked;
+                
+                if (!searchText) return;
+
+                this.performSearch(searchText, caseSensitive, wholeWord);
+                
+                if (this.searchResults.length === 0) {
+                    this.updateStatus('검색 결과 없음');
+                    return;
+                }
+
+                const prevIndex = this.currentSearchIndex - 1;
+
+                if (prevIndex < 0) {
+                    this.playBeep(); // ★ 경고음만 재생
+                    this.updateStatus('검색 결과의 처음입니다.');
+                    return; // ★ 롤오버 방지
+                }
+
+                this.currentSearchIndex = prevIndex;
+                this.highlightSearchResult(this.currentSearchIndex);
+                this.updateStatus(`${this.currentSearchIndex + 1} / ${this.searchResults.length}`);
+            }
+
+            performSearch(searchText, caseSensitive, wholeWord) {
+                // 검색어 변경 시에만 초기화
+                const currentSearchPanel = this.searchPanel;
+                const currentSearchText = searchText;
+                
+                if (this._lastSearchText !== currentSearchText || this._lastSearchPanel !== currentSearchPanel) {
+                    this.clearHighlights();
+                    this.searchResults = [];
+                    this.currentSearchIndex = -1;
+                    
+                    const editorId = currentSearchPanel === 'left' ? 'leftEditor' : 'rightEditor';
+                    const editor = document.getElementById(editorId);
+                    const lines = editor.querySelectorAll('.line-content');
+
+                    let flags = 'g';
+                    if (!caseSensitive) flags += 'i';
+
+                    let pattern = this.escapeRegex(currentSearchText);
+                    if (wholeWord) {
+                        pattern = `\\b${pattern}\\b`;
+                    }
+
+                    const regex = new RegExp(pattern, flags);
+
+                    lines.forEach((line) => {
+                        const text = line.textContent;
+                        const matches = text.matchAll(regex);
+                        
+                        for (const match of matches) {
+                            this.searchResults.push({
+                                line,
+                                text,
+                                matchIndex: match.index,
+                                matchLength: match[0].length
+                            });
+                        }
+                    });
+
+                    this._lastSearchText = currentSearchText;
+                    this._lastSearchPanel = currentSearchPanel;
+                    
+                    logger.info(`검색 결과: ${this.searchResults.length}개 발견`);
+                }
+            }
+
+            highlightSearchResult(index) {
+                this.clearHighlights();
+                
+                if (index < 0 || index >= this.searchResults.length) return;
+
+                const result = this.searchResults[index];
+                const line = result.line;
+                const text = result.text;
+                const matchIndex = result.matchIndex;
+                const matchLength = result.matchLength;
+
+                // 재구성을 위해 텍스트에서 HTML 엔티티를 임시로 제거합니다.
+                const unescapedText = this.unescapeHtml(text);
+                const before = this.escapeHtml(unescapedText.substring(0, matchIndex));
+                const match = this.escapeHtml(unescapedText.substring(matchIndex, matchIndex + matchLength));
+                const after = this.escapeHtml(unescapedText.substring(matchIndex + matchLength));
+
+                // 현재 하이라이트 적용
+                line.innerHTML = `${before}<span class="search-highlight current">${match}</span>${after}`;
+                
+                // 다른 일치 항목 하이라이트 (같은 라인 및 다른 라인)
+                this.searchResults.forEach((r, i) => {
+                    if (i !== index) {
+                        // 다른 라인의 하이라이트 (일반 하이라이트)
+                        const r_unescapedText = this.unescapeHtml(r.text);
+                        const b = this.escapeHtml(r_unescapedText.substring(0, r.matchIndex));
+                        const m = this.escapeHtml(r_unescapedText.substring(r.matchIndex, r.matchIndex + r.matchLength));
+                        const a = this.escapeHtml(r_unescapedText.substring(r.matchIndex + r.matchLength));
+                        r.line.innerHTML = `${b}<span class="search-highlight">${m}</span>${a}`;
+                    }
+                });
+
+                line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            clearHighlights() {
+                // searchPanel이 'find' 모드에서 설정되었을 것이므로 바로 사용합니다.
+                const editorId = this.searchPanel === 'left' ? 'leftEditor' : 'rightEditor';
+                const editor = document.getElementById(editorId);
+                
+                // 모든 라인 요소를 가져옵니다.
+                const lines = editor.querySelectorAll('.line-content');
+                
+                lines.forEach(line => {
+                    // HTML 내용을 제거하고 텍스트 내용으로만 대체합니다.
+                    const textContent = line.textContent;
+                    // contentEditable이든 아니든, HTML 엔티티를 복구하여 넣습니다.
+                    line.innerHTML = this.escapeHtml(textContent);
+                });
+            }
+
+            escapeRegex(str) {
+                return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            // --- 백업 파일 생성 함수 (수정됨) ---
+            backupFile() {
+                if (!this.rightContent || !this.rightFileName) {
+                    logger.warn('백업할 파일 정보가 없습니다.');
+                    return;
+                }
+                
+                // ★ [수정] 백업 성공 시 lastSavedContent 갱신
+                this.lastSavedContent = this.rightContent; 
+                
+                const originalFileName = this.rightFileName;
+                const lastDotIndex = originalFileName.lastIndexOf('.');
+                
+                // 파일 이름과 확장자 분리 (확장자가 없는 경우도 처리)
+                let namePart = lastDotIndex === -1 ? originalFileName : originalFileName.substring(0, lastDotIndex);
+                let extPart = lastDotIndex === -1 ? '' : originalFileName.substring(lastDotIndex);
+                
+                // 기존 이름에서 (숫자) 부분을 제거
+                const cleanNameMatch = namePart.match(/^(.*?)(?:\(\d+\))?$/);
+                const baseName = cleanNameMatch ? cleanNameMatch[1].trim() : namePart.trim();
+                
+                // ★ [수정] 타임스탬프 태그 생성
+                const now = new Date();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hour = String(now.getHours()).padStart(2, '0');
+                const minute = String(now.getMinutes()).padStart(2, '0');
+                const timestampTag = `_${month}${day}_${hour}${minute}`;
+                
+                // 백업 파일 이름 생성 (baseName_MMDD_HHMM.ext)
+                const backupName = `${baseName}${timestampTag}${extPart}`;
+                
+                // 브라우저에 다운로드 요청
+                const success = this._triggerDownload(this.rightContent, backupName, false);
+                
+                if (success) {
+                    logger.info(`자동 백업 파일 생성됨: ${backupName}`);
+                } else {
+                    logger.error("자동 백업 파일 생성 요청 실패. 다운로드 경고창을 확인하세요.");
+                }
+            }
+            // ------------------------------------
+
+            // --- 파일 다운로드 실행 로직 (공통) ---
+            _triggerDownload(content, filename, isOverwrite) {
+                try {
+                    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    return true;
+                } catch (e) {
+                    logger.error(`파일 다운로드 실패 (${filename}): ${e.message}`);
+                    return false;
+                }
+            }
+            // ------------------------------------
+
+
+            // --- saveFile 함수 수정: 묻지 않고 덮어쓰기 저장 ---
+            saveFile() {
+                if (!this.rightContent || !this.rightFileName) {
+                    alert('저장할 내용이나 파일 이름이 없습니다.');
+                    return;
+                }
+                
+                // ★ [수정] 내용 변경 여부 확인: 수정 사항이 없으면 저장하지 않음
+                if (this.rightContent === this.lastSavedContent) {
+                    this.updateStatus('수정된 내용이 없으므로 저장하지 않습니다.');
+                    return;
+                }
+                
+                // ★ [수정] 내용이 수정되었을 경우 lastSavedContent 갱신
+                this.lastSavedContent = this.rightContent; 
+                
+                // 현재 파일을 묻지 않고 바로 덮어씁니다.
+                const downloadName = this.rightFileName || 'edited_file.txt';
+                this._triggerDownload(this.rightContent, downloadName, true);
+
+                logger.info(`파일 저장됨 (덮어쓰기): ${downloadName}`);
+                this.updateStatus(`파일 저장됨: ${downloadName}`);
+            }
+            // -------------------------------------------------
+
+            syncScroll() {
+                const leftEditor = document.getElementById('leftEditor');
+                const rightEditor = document.getElementById('rightEditor');
+
+                let isSyncing = false;
+
+                leftEditor.addEventListener('scroll', () => {
+                    if (!isSyncing) {
+                        isSyncing = true;
+                        rightEditor.scrollTop = leftEditor.scrollTop;
+                        setTimeout(() => isSyncing = false, 10);
+                    }
+                });
+
+                rightEditor.addEventListener('scroll', () => {
+                    if (!isSyncing) {
+                        isSyncing = true;
+                        leftEditor.scrollTop = rightEditor.scrollTop;
+                        setTimeout(() => isSyncing = false, 10);
+                    }
+                });
+            }
+
+            calculateStats(diffResult) {
+                const stats = {
+                    added: 0,
+                    removed: 0,
+                    equal: 0
+                };
+
+                diffResult.forEach(item => {
+                    if (item.type === 'added') stats.added++;
+                    else if (item.type === 'removed') stats.removed++;
+                    else if (item.type === 'equal') stats.equal++;
+                });
+
+                return stats;
+            }
+
+            // ★ [삭제] updateDiffStats 함수 제거
+
+            // ★ [수정] updateStatus 함수: status-bar 제거로 로그만 출력
+            updateStatus(message) {
+                // document.getElementById('statusText').textContent = message; // 제거됨
+                logger.info(`상태 업데이트: ${message}`);
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                let html = div.innerHTML;
+                
+                // 공백과 탭을 HTML 엔티티로 변환하여 보존
+                html = html.replace(/ /g, '&nbsp;');
+                html = html.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
+                
+                return html;
+            }
+            
+            unescapeHtml(html) {
+                const div = document.createElement('div');
+                // 공백 엔티티를 일반 공백으로 먼저 되돌립니다.
+                html = html.replace(/&nbsp;/g, ' ');
+                // 탭 엔티티를 일반 탭으로 되돌립니다. (여기서는 공백 4개로 처리)
+                html = html.replace(/ {4}/g, '\t'); 
+                
+                div.innerHTML = html;
+                return div.textContent;
+            }
+        }
+
+        const app = new UltraCompare();
+    </script>
+</body>
+</html>
