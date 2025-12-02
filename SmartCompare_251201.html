@@ -22,7 +22,7 @@
         .header {
             background: #2d2d30;
             padding: 10px 20px;
-            border-bottom: 1px solid #3e3e42;
+            border-bottom: 11px solid #3e3e42;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -87,10 +87,10 @@
             background: #0e639c;
             color: white;
             border: none;
-            padding: 8px 16px;
+            padding: 4px 12px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             transition: background 0.2s;
         }
 
@@ -134,10 +134,10 @@
         .file-input-wrapper label {
             background: #0e639c;
             color: white;
-            padding: 8px 16px;
+            padding: 4px 12px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             transition: background 0.2s;
             display: inline-block;
         }
@@ -198,6 +198,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            min-height: 42px;
+            height: 42px;
         }
 
         .panel-header-left {
@@ -227,7 +229,7 @@
             background: #0e639c;
             color: white;
             border: none;
-            padding: 6px 12px;
+            padding: 4px 10px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 12px;
@@ -581,22 +583,28 @@
         </div>
         
         <div class="file-controls">
-            <button class="header-btn" id="copyToRightBtn" title="선택한 블록을 우측으로 복사">→ 우측으로 복사</button>
             <button class="header-btn" id="findLeftOnlyBtn" title="왼쪽 파일에서 찾기 (Ctrl+F)">🔍 좌측 찾기</button>
             <button class="header-btn" id="findRightOnlyBtn" title="오른쪽 파일에서 찾기 (Ctrl+F)">🔍 우측 찾기</button>
-            <button class="header-btn" id="deleteBtn" title="선택한 줄을 우측 파일에서 삭제">🗑️ 삭제</button> 
             
             <div class="auto-save-control">
-                <label for="autoSaveSecondsInput">저장 주기 (분):</label>
-                <input type="range" id="autoSaveSecondsInput" min="1" max="20" step="1" value="10"> 
-                <span id="autoSaveCurrentValue">10분</span> 
+                <label for="autoSaveSecondsInput">자동 저장</label>
+                <select id="autoSaveSecondsInput" class="dialog-input" style="width: 70px; font-size: 12px; margin-right: 5px;">
+                    <option value="1">1분</option>
+                    <option value="2">2분</option>
+                    <option value="5">5분</option>
+                    <option value="10" selected>10분</option>
+                    <option value="15">15분</option>
+                    <option value="20">20분</option>
+                </select>
             </div>
         </div>
         
         <div class="controls">
-            <button id="undoBtn" title="실행 취소 (Ctrl+Z)">↶ 실행 취소</button>
-            <button id="redoBtn" title="재실행 (Ctrl+Y)">↷ 재실행</button>
-            <button id="toggleLogBtn">📋 로그</button>
+            <button id="copyToRightBtn" class="header-btn" title="선택한 블록을 우측으로 복사">→ 우측으로 복사</button>
+            <button id="deleteBtn" class="header-btn" title="선택한 줄을 우측 파일에서 삭제">🗑️ 삭제</button> 
+            <button id="undoBtn" class="header-btn" title="실행 취소 (Ctrl+Z)">↶ 실행 취소</button>
+            <button id="redoBtn" class="header-btn" title="재실행 (Ctrl+Y)">↷ 재실행</button>
+            <button id="toggleLogBtn" class="header-btn">📋 로그</button>
         </div>
     </div>
 
@@ -606,7 +614,7 @@
                 <div class="panel-header-left">
                     <span class="file-info">
                         <span id="leftFileName">파일을 선택하세요</span>
-                        <span class="file-status">(읽기 전용)</span>
+                        <span class="file-status">(원본)</span>
                     </span>
                 </div>
                 <div class="panel-header-right">
@@ -624,7 +632,7 @@
                 <div class="panel-header-left">
                     <span class="file-info">
                         <span id="rightFileName">파일을 선택하세요</span>
-                        <span class="file-status">(편집 가능)</span>
+                        <span class="file-status">(수정본)</span>
                     </span>
                 </div>
                 <div class="panel-header-right">
@@ -676,11 +684,12 @@
         </div>
     </div>
     
-    <div id="autoSaveGuide">
-        <button class="close-btn" onclick="document.getElementById('autoSaveGuide').classList.remove('active');">✕</button>
-        **[안내]** 파일 자동 저장/수동 저장 시 다운로드 확인 창이 뜨는 것을 막으려면, 브라우저 다운로드 설정을 변경해야 합니다. 
-        <br>👉 **Chrome 기준:** 설정 > 다운로드 > '다운로드 전에 각 파일 저장 위치 확인'을 **비활성화**하세요.
-    </div>
+	<div id="autoSaveGuide">
+		<button class="close-btn" onclick="document.getElementById('autoSaveGuide').classList.remove('active');">✕</button>
+		👉양쪽 파일 원본은 수정되지 않습니다
+		<br>👉자동/수동 저장, 브라우저의 '다운로드' 폴더에 저장 됩니다
+		<br>👉브라우저, '설정' -> '다운로드' -> '다운로드 전에 파일의 저장 위치 확인'을 끄세요
+	</div>
 
     <script>
         // ★ [수정] 자동 저장 주기 설정 (1분 ~ 20분) - 초기값 10분
@@ -891,18 +900,10 @@
                 this.loadAutoSaveSetting();
                 
                 const inputElement = document.getElementById('autoSaveSecondsInput');
-                const currentValueSpan = document.getElementById('autoSaveCurrentValue');
+                // const currentValueSpan = document.getElementById('autoSaveCurrentValue'); // span 제거됨
                 
                 if (inputElement) {
-                    // 초기값 표시
-                    currentValueSpan.textContent = `${inputElement.value}분`;
-                    
-                    // 슬라이드 바 값 변경 시 실시간 표시
-                    inputElement.addEventListener('input', (e) => {
-                        currentValueSpan.textContent = `${e.target.value}분`;
-                    });
-                    
-                    // 슬라이드 바 사용 완료(change) 시 설정 저장 및 타이머 재시작
+                    // 선택 값 변경 시 설정 저장 및 타이머 재시작
                     inputElement.addEventListener('change', () => this.saveAutoSaveSetting());
                 }
                 
@@ -915,11 +916,10 @@
                 document.getElementById('rightFile').addEventListener('change', (e) => this.handleRightFile(e));
                 
                 // 기본 버튼
+                document.getElementById('copyToRightBtn').addEventListener('click', () => this.copyToRight());
                 document.getElementById('undoBtn').addEventListener('click', () => this.undo());
                 document.getElementById('redoBtn').addEventListener('click', () => this.redo());
                 
-                // 헤더에 분리된 찾기 버튼
-                document.getElementById('copyToRightBtn').addEventListener('click', () => this.copyToRight());
                 // ★ [수정] ID 변경
                 document.getElementById('deleteBtn').addEventListener('click', () => this.deleteSelectedLines()); 
                 document.getElementById('findLeftOnlyBtn').addEventListener('click', () => this.openFindDialog('left')); // 좌측 찾기
@@ -1001,6 +1001,9 @@
                 // ★ [삭제] status-bar 관련 초기화 로직 제거
                 this.updateStatus('준비됨');
                 this.updateUndoRedoButtons();
+
+                // ★ [추가] 페이지 로드 시 안내 문구 표시 (사용자 요청)
+                document.getElementById('autoSaveGuide').classList.add('active');
             }
             
             // ★ [수정] 설정 불러오기 (분 단위)
@@ -1008,7 +1011,7 @@
                 const savedMinutes = localStorage.getItem(LOCAL_STORAGE_KEY);
                 
                 const inputElement = document.getElementById('autoSaveSecondsInput');
-                const currentValueSpan = document.getElementById('autoSaveCurrentValue');
+                // currentValueSpan 제거됨
 
                 if (inputElement) {
                     let minutes;
@@ -1017,11 +1020,14 @@
                     } else {
                         // 1분~20분 범위 적용
                         minutes = Math.max(1, Math.min(20, parseInt(savedMinutes)));
+                        
+                        // ★ [추가] 선택 목록에 없는 값일 경우 기본값으로 리셋
+                        if (!['1', '2', '5', '10', '15', '20'].includes(String(minutes))) {
+                            minutes = DEFAULT_AUTO_SAVE_MINUTES;
+                        }
                     }
                     inputElement.value = minutes;
-                    if (currentValueSpan) {
-                         currentValueSpan.textContent = `${minutes}분`; // 스팬 값 갱신
-                    }
+                    // 기존 스팬 값 갱신 로직 제거됨
                 }
             }
             
@@ -1030,9 +1036,7 @@
                 const inputElement = document.getElementById('autoSaveSecondsInput');
                 if (inputElement) {
                     let minutes = parseInt(inputElement.value);
-                    // 1분~20분 제한
-                    minutes = Math.max(1, Math.min(20, minutes)); 
-                    inputElement.value = minutes;
+                    // Select box로 변경되어 1분~20분 제한 로직 불필요
                     localStorage.setItem(LOCAL_STORAGE_KEY, minutes);
                     logger.info(`저장 주기 설정됨: ${minutes}분`);
                     
