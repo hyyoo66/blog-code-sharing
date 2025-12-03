@@ -177,6 +177,9 @@ def process_gemini_html(raw_input):
 
     # 🔽 줄 맨 앞 공백/탭 + > 제거
     md = re.sub(r'(?m)^[ \t]*>\s*', '', md)
+    
+    # 챗GPT 수식 -> 제미나이 수식
+    md = re.sub(r'\\\[(.*?)\\\]', r'$$\n\1\n$$', md, flags=re.DOTALL)
 
     return md
 
