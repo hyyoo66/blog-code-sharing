@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>음성 타이퍼</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&family=JetBrains+Mono:wght@400;700&display=swap');
+  :root {
+    --bg:#0f0f11; --surface:#18181c; --border:#2a2a32;
+    --accent:#4fffb0; --accent2:#00cfff; --danger:#ff4f6a;
+    --text:#e8e8f0; --muted:#666678; --radius:12px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:'Noto Sans KR',sans-serif;
+    min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; padding:40px 20px;
+  }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, #4fffb018, transparent),
+      radial-gradient(ellipse 60% 40% at 80% 100%, #00cfff10, transparent);
+    pointer-events:none; z-index:0;
+  }
+  .container { position:relative; z-index:1; width:100%; max-width:720px; display:flex; flex-direction:column; gap:20px; }
+
+  header { display:flex; align-items:baseline; gap:12px; }
+  header h1 { font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; color:var(--accent); }
+  header span { font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
+
+  .status-bar {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 16px; background:var(--surface);
+    border:1px solid var(--border); border-radius:var(--radius);
+    font-size:13px; color:var(--muted);
+  }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--muted); transition:background 0.3s; flex-shrink:0; }
+  .dot.active { background:var(--accent); box-shadow:0 0 8px var(--accent); animation:pulse 1.2s infinite; }
+  .dot.error { background:var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .waveform { display:flex; align-items:center; gap:3px; height:36px; padding:0 8px; }
+  .wave-bar { width:3px; border-radius:2px; background:var(--accent); opacity:0.3; transform:scaleY(0.15); transform-origin:center; transition:transform 0.1s ease; }
+
+  /* 통합 패널 */
+  .panel {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); overflow:hidden; transition:border-color 0.3s;
+  }
+  .panel.recording { border-color:var(--accent); }
+  .panel-header {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 16px; border-bottom:1px solid var(--border);
+    font-size:11px; font-family:'JetBrains Mono',monospace;
+    color:var(--muted); letter-spacing:0.5px; text-transform:uppercase;
+  }
+  /* 메인 텍스트 영역 - 수정 가능 */
+  #mainText {
+    width:100%; min-height:200px; padding:16px;
+    background:transparent; border:none; outline:none;
+    color:var(--text); font-family:'Noto Sans KR',sans-serif;
+    font-size:16px; line-height:1.8; resize:vertical;
+  }
+  #mainText::placeholder { color:var(--muted); }
+
+  /* 인식 중 임시 텍스트 */
+  .interim-text {
+    padding:8px 16px 10px; font-size:14px; color:var(--muted);
+    font-style:italic; min-height:34px;
+    border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:8px;
+  }
+  .interim-text::before { content:'▶'; font-size:9px; color:var(--accent); flex-shrink:0; }
+
+  .btn-group { display:flex; gap:10px; }
+  .btn {
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:12px 18px; border-radius:var(--radius); border:none; cursor:pointer;
+    font-family:'Noto Sans KR',sans-serif; font-size:14px; font-weight:700; transition:all 0.15s;
+  }
+  .btn:active { transform:scale(0.97); }
+  .btn-primary { background:var(--accent); color:#0a0a0c; flex:2; }
+  .btn-primary:hover { background:#6fffbe; }
+  .btn-primary.recording { background:var(--danger); color:#fff; }
+  .btn-copy { background:var(--surface); color:var(--text); border:1px solid var(--border); flex:1; }
+  .btn-copy:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-copy.copied { color:var(--accent); border-color:var(--accent); }
+  .btn-clear { background:var(--surface); color:var(--muted); border:1px solid var(--border); padding:12px 16px; }
+  .btn-clear:hover { color:var(--danger); border-color:var(--danger); }
+
+  .options { display:flex; gap:20px; flex-wrap:wrap; }
+  .option { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); cursor:pointer; user-select:none; }
+  .option input[type=checkbox] { accent-color:var(--accent); width:14px; height:14px; }
+  .option:hover { color:var(--text); }
+
+  .hint { font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace; text-align:right; }
+  kbd { background:var(--border); border-radius:4px; padding:1px 5px; font-size:11px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>🎙 음성 타이퍼</h1>
+    <span>v260415-1400</span>
+  </header>
+
+  <div class="status-bar">
+    <div class="dot" id="dot"></div>
+    <div class="waveform" id="waveform"></div>
+    <span id="statusText">마이크 버튼을 눌러 시작하세요</span>
+  </div>
+
+  <!-- 통합 텍스트 창 -->
+  <div class="panel" id="mainPanel">
+    <div class="panel-header">
+      <span>텍스트 (수정 가능)</span>
+      <span id="charCount" style="font-family:'JetBrains Mono',monospace;">0자</span>
+    </div>
+    <textarea id="mainText" placeholder="여기에 음성 인식 결과가 표시됩니다.&#10;말이 끝나면 문장부호가 자동으로 추가됩니다.&#10;직접 수정도 가능합니다."></textarea>
+    <div class="interim-text" id="interimText"></div>
+  </div>
+
+  <div class="btn-group">
+    <button class="btn btn-primary" id="recBtn" onclick="toggleRec()">
+      <span id="recIcon">⏺</span><span id="recLabel">녹음 시작</span>
+    </button>
+    <button class="btn btn-copy" id="copyBtn" onclick="copyText()">📋 복사</button>
+    <button class="btn btn-clear" onclick="clearAll()">🗑</button>
+  </div>
+
+  <div class="options">
+    <label class="option"><input type="checkbox" id="appendMode" checked> 이어쓰기</label>
+    <label class="option"><input type="checkbox" id="autoCopy"> 자동 복사</label>
+  </div>
+
+  <div class="hint">
+    <kbd>Space</kbd> 녹음 &nbsp;·&nbsp; <kbd>C</kbd> 복사 &nbsp;·&nbsp; <kbd>Del</kbd> 지우기
+  </div>
+
+</div>
+<script>
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null;
+let isRec = false;
+let waveBars = [];
+
+// 파형 생성
+const wf = document.getElementById('waveform');
+for (let i = 0; i < 20; i++) {
+  const b = document.createElement('div');
+  b.className = 'wave-bar';
+  wf.appendChild(b);
+  waveBars.push(b);
+}
+setInterval(() => {
+  waveBars.forEach((b, i) => {
+    const h = isRec
+      ? 0.15 + Math.random() * 0.85
+      : 0.1 + Math.abs(Math.sin(Date.now() / 600 + i * 0.5)) * 0.12;
+    b.style.transform = 'scaleY(' + h + ')';
+    b.style.opacity = isRec ? '0.7' : '0.3';
+  });
+}, 90);
+
+function setStatus(msg, type) {
+  document.getElementById('statusText').textContent = msg;
+  document.getElementById('dot').className = 'dot' + (type ? ' ' + type : '');
+}
+
+function toggleRec() {
+  if (!SR) { setStatus('Chrome 또는 Edge를 사용해 주세요', 'error'); return; }
+  if (isRec) {
+    isRec = false;
+    if (recog) recog.stop();
+  } else {
+    startRec();
+  }
+}
+
+function startRec() {
+  if (!recog) {
+    recog = new SR();
+    recog.lang = 'ko-KR';
+    recog.interimResults = true;
+    recog.continuous = true;
+
+    recog.onstart = () => {
+      isRec = true;
+      setStatus('🎙 듣는 중...', 'active');
+      document.getElementById('recBtn').classList.add('recording');
+      document.getElementById('recIcon').textContent = '⏹';
+      document.getElementById('recLabel').textContent = '녹음 중지';
+      document.getElementById('mainPanel').classList.add('recording');
+    };
+
+    let punctTimer = null;
+
+    recog.onresult = (e) => {
+      let interim = '', final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += t;
+        else interim += t;
+      }
+      document.getElementById('interimText').textContent = interim;
+
+      if (final) {
+        const ta = document.getElementById('mainText');
+        if (!document.getElementById('appendMode').checked) {
+          ta.value = '';
+        }
+        // 이전 텍스트 끝에 공백 추가 후 새 발화 붙임
+        const prev = ta.value;
+        ta.value = prev + (prev && !prev.endsWith('\n') ? ' ' : '') + final;
+        updateCount();
+        ta.scrollTop = ta.scrollHeight;
+
+        // 300ms 후 새 발화에만 문장부호 교정 적용
+        clearTimeout(punctTimer);
+        punctTimer = setTimeout(() => insertPunct(final), 300);
+      }
+    };
+
+    recog.onerror = (e) => {
+      if (e.error === 'not-allowed') {
+        setStatus('마이크 권한을 허용해 주세요', 'error');
+        isRec = false;
+        resetBtn();
+      } else if (e.error === 'no-speech') {
+        // 무음 무시
+      } else if (e.error !== 'aborted') {
+        setStatus('오류: ' + e.error, 'error');
+      }
+    };
+
+    recog.onend = () => {
+      document.getElementById('interimText').textContent = '';
+      if (isRec) {
+        try { recog.start(); } catch (err) {}
+      } else {
+        resetBtn();
+        setStatus('중지됨 — 버튼을 눌러 재시작');
+      }
+    };
+  }
+
+  isRec = true;
+  try { recog.start(); } catch (err) {}
+}
+
+function resetBtn() {
+  document.getElementById('recBtn').classList.remove('recording');
+  document.getElementById('recIcon').textContent = '⏺';
+  document.getElementById('recLabel').textContent = '녹음 시작';
+  document.getElementById('mainPanel').classList.remove('recording');
+}
+
+// 새 발화(chunk)에 문장부호 교정 후 textarea에 반영
+function insertPunct(chunk) {
+  chunk = chunk.trim();
+  if (!chunk) return;
+
+  // 접속사 앞 쉼표
+  chunk = chunk.replace(/(\s+)(근데|그런데|그리고|하지만|그래서|그러나|또한|그럼|그러면)(\s+)/g, ', $2$3');
+
+  // 끝 문장부호
+  if (!/[.?!]$/.test(chunk)) {
+    const isQ = /(누구|어디|언제|어떻게|왜|뭐|무엇|몇|어느|어떤|니|냐|나요|나|은가|는가|을까|ㄹ까|을까요|ㄹ까요|있나요|있나|인가요|인가|할까요|할까|인지|인데요|세요|나요|죠|지요|하나요|건가요|건가|니까|왔니|갔니|됐니|했니|봤니|줬니|먹었니|했어요)$/.test(chunk);
+    chunk += isQ ? '?' : '.';
+  }
+
+  // textarea에서 마지막에 추가된 raw 발화를 교정된 것으로 교체
+  const ta = document.getElementById('mainText');
+  const raw = chunk.replace(/[.?!,]$/g, '').replace(/, (근데|그런데|그리고|하지만|그래서|그러나|또한|그럼|그러면)/g, ' $1');
+
+  // raw 발화가 textarea 끝에 있으면 교정본으로 교체
+  const val = ta.value;
+  const rawIdx = val.lastIndexOf(raw.trim());
+  if (rawIdx !== -1 && rawIdx === val.trimEnd().length - raw.trim().length) {
+    ta.value = val.slice(0, rawIdx) + chunk;
+  } else {
+    // 못 찾으면 그냥 끝에 부호만 추가
+    ta.value = val.trimEnd() + (!/[.?!]$/.test(val.trimEnd()) ? (chunk.slice(-1)) : '');
+  }
+
+  updateCount();
+  ta.scrollTop = ta.scrollHeight;
+
+  if (document.getElementById('autoCopy').checked) {
+    navigator.clipboard.writeText(ta.value).catch(() => {});
+  }
+}
+
+function updateCount() {
+  document.getElementById('charCount').textContent =
+    document.getElementById('mainText').value.length + '자';
+}
+
+document.getElementById('mainText').addEventListener('input', updateCount);
+
+function copyText() {
+  const text = document.getElementById('mainText').value;
+  if (!text.trim()) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    const orig = btn.textContent;
+    btn.textContent = '✅ 복사됨!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+function clearAll() {
+  document.getElementById('mainText').value = '';
+  document.getElementById('interimText').textContent = '';
+  updateCount();
+}
+
+document.addEventListener('keydown', (e) => {
+  if (['TEXTAREA', 'INPUT'].includes(e.target.tagName)) return;
+  if (e.code === 'Space') { e.preventDefault(); toggleRec(); }
+  if (e.code === 'KeyC') copyText();
+  if (e.code === 'Delete') clearAll();
+});
+</script>
+</body>
+</html>
