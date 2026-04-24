@@ -28,6 +28,7 @@ def chat(client, messages):
     response = client.chat.completions.create(
         model=MODEL,
         messages=messages,
+        max_tokens=1000,
     )
     return response.choices[0].message.content
 
