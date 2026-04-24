@@ -3,7 +3,7 @@ import os
 import requests
 import json
 
-api_key = os.getenv("OPENROUTER_API_KEY")
+api_key = os.getenv("OPENROUTER_API_KEY") or "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"
 
 if not api_key:
     print("❌ OPENROUTER_API_KEY 환경변수가 설정되지 않았습니다")
