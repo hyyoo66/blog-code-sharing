@@ -6,7 +6,7 @@ from openai import OpenAI
 # -----------------------------------------------
 # 🔧 설정
 # -----------------------------------------------
-MODEL = "openai/gpt-4o"
+MODEL = "deepseek/deepseek-chat"
 API_KEY_ENV = "OPENROUTER_API_KEY"
 SEPARATOR_LENGTH = 50
 # -----------------------------------------------
